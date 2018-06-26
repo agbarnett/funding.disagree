@@ -3,7 +3,7 @@ Code and data for our analysis of AIBS grant applications. Do funding applicatio
 have higher citations?
 
 The files are:
-1. AIBS.RData, R data file with the variables
+1. AIBS.RData, R data file with the following variables:
   
   -- "Anon_PropID" - Application ID number
   
@@ -25,6 +25,6 @@ The files are:
   
   -- "Panel" - Panel ID
 
-2. .Rmd, Rmarkdown file to perform the analyses
+2. grant.outcomes.github.Rmd, Rmarkdown file to perform the analyses
 
-3. 
+3. grant.outcomes.github.docx, Word output from the Rmarkdown file
