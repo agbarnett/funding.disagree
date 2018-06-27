@@ -3,7 +3,7 @@ Code and data for our analysis of AIBS grant applications. Paper title: "Do fund
 have higher citations?"
 
 The four files are:
-1. AIBS.RData, R data file with the following variables:
+1. `AIBS.RData`, R data file with the following variables:
   
 * "Anon_PropID" - Application ID number
   
@@ -25,9 +25,9 @@ The four files are:
   
 * "Panel" - Panel ID
 
-2. AIBS.csv, csv data with same rows and variables as AIBS.RData.
+2. `AIBS.csv`, csv data with same rows and variables as AIBS.RData.
 
-3. grant.outcomes.github.Rmd, Rmarkdown file to perform the analyses using AIBS.RData. Was created using R version 3.4.4. The following R packages need to be installed:
+3. `grant.outcomes.github.Rmd`, Rmarkdown file to perform the analyses using `AIBS.RData`. Was created using R version 3.4.4. The following R packages need to be installed:
 * doBy
 * dplyr
 * ellipse 
@@ -42,4 +42,4 @@ The four files are:
 * reshape2
 * stargazer 
 
-4. grant.outcomes.github.docx, Word output from the Rmarkdown file.
+4. `grant.outcomes.github.docx`, Word output from the Rmarkdown file.
