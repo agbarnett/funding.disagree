@@ -25,23 +25,21 @@ The four files are:
   
 * "Panel" - Panel ID
 
-2. AIBS.csv, csv data with same variables as above.
+2. AIBS.csv, csv data with same rows and variables as AIBS.RData.
 
 3. grant.outcomes.github.Rmd, Rmarkdown file to perform the analyses using AIBS.RData. Was created using R version 3.4.4. The following R packages need to be installed:
-
-* lme4
-* influence.ME
-* merTools
-* reshape2
-* dplyr
-* plyr
-* readxl
 * doBy
-* ggplot2
+* dplyr
 * ellipse 
-* pander
-* stargazer 
-* mitools 
+* ggplot2
+* influence.ME
+* lme4
+* merTools
 * mice 
+* mitools 
+* pander
+* plyr
+* reshape2
+* stargazer 
 
 4. grant.outcomes.github.docx, Word output from the Rmarkdown file.
