@@ -1,8 +1,8 @@
 # funding.disagree
-Code and data for our analysis of AIBS grant applications. Do funding applications where peer reviewers disagree
-have higher citations?
+Code and data for our analysis of AIBS grant applications. Paper title: "Do funding applications where peer reviewers disagree
+have higher citations?"
 
-The files are:
+The four files are:
 1. AIBS.RData, R data file with the following variables:
   
 * "Anon_PropID" - Application ID number
@@ -44,4 +44,4 @@ The files are:
 * mitools 
 * mice 
 
-4. grant.outcomes.github.docx, Word output from the Rmarkdown file
+4. grant.outcomes.github.docx, Word output from the Rmarkdown file.
