@@ -1,4 +1,4 @@
-# funding.disagree
+# Winning funding and peer reviewer disagreement
 Code and data for our analysis of AIBS grant applications. Paper title: "[Do funding applications where peer reviewers disagree
 have higher citations?](https://f1000research.com/articles/7-1030/v1)"
 
