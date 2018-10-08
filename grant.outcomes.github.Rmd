@@ -1,7 +1,7 @@
 ---
-title: "Examining the association between an application's panel score and its subsequent citations"
+title: "Examining the association between grant application panel scores and subsequent citations"
 author: "Adrian Barnett"
-date: "26 June 2018"
+date: "8 October 2018"
 output: word_document
 ---
 
@@ -24,10 +24,11 @@ library(mitools) # to combine imputations
 library(mice) # for multiple imputations
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-# load the data
+# load the data with application scores and citations
 load('AIBS.RData')
+data$year = data$`Review Year` - 1998 # re-scale year; earliest year is 1999
 
-# long version of data
+# make a long-format version of data
 sub.data = dplyr::select(data, Anon_PropID, 'Web TRC', score.mean, score.sd, "Min Score", "Max Score", 'range') 
 names(sub.data) = c('id', 'Citations', 'Mean', 'SD', 'Min', 'Max', 'Range')
 long = melt(sub.data, id.vars=c('id', 'Citations'))
@@ -36,13 +37,13 @@ long2 = melt(sub.data, id.vars=c('id')) # version with citations as well
 long2 = subset(long2, is.na(value)==F)
 
 ## log-transform dependent variable or not
-log.dep = T
+log.dep = TRUE
 ```
 
 ## Introduction
 
-The data are `r nrow(data)` successful grant applications for the years `r min(data$"Review Year")` to `r max(data$"Review Year")`.
-The outcome is citation number.
+The data are `r nrow(data)` successful grant applications for the years `r min(data$"Review Year")` to `r max(data$"Review Year")` from the _American Institute of Biological Sciences_.
+The outcome is total relative citations (larger is better).
 The key predictor is the application score, which ranges from 1 (best) to 5 (worst).
 Funding decisions typically use the mean score to rank applications, but there may be value in also using the standard deviation in a score which reflects an application where there was some disagreement between panel members.
 
@@ -59,7 +60,7 @@ p.miss.range = round(100*n.miss.range/nrow(data))
 
 ### Bar plot of reviewer numbers
 
-```{r reviewer.numbers, fig.width=4, fig.height=4}
+```{r reviewer.numbers, fig.width=3, fig.height=3}
 bplot = ggplot(data=data, aes(x=`N Votes`))+
  geom_bar(fill=cbbPalette[3])+
  theme_bw()+
@@ -70,35 +71,26 @@ bplot
 
 This is a bimodal distribution with a mode at 3 reviewers for the teleconference reviews and second mode at 11 to 12 for the larger panels.
 
-#### Histogram of the primary outcome
+#### Histograms of the application score statistics and citations (primary outcome)
 
-```{r histo.outcome, fig.width=4, fig.height=4}
-hplot = ggplot(data=data, aes(x=`Web TRC`))+
- geom_histogram(fill=cbbPalette[3])+
- theme_bw()+
- xlab('Total relative citation')+
- ylab('Frequency')
-hplot
+```{r histo.scores.mean, fig.width=7, fig.height=7}
 # calculate n and percent zero
 n.zero = sum(data$`Web TRC`==0)
 p.zero = round(100*n.zero/nrow(data))
-```
 
-The main outcome is strongly positively skewed. There were `r n.zero` (`r p.zero`%) grants with zero citations.
-
-#### Histograms of the application score statistics and citations
-
-```{r histo.scores.mean, fig.width=7, fig.height=7}
+## plot
 long2$group = 1 
 long2$group[long2$variable=='Citations'] = 2 
+long2$facet = as.character(long2$variable)
+long2$facet[long2$facet=='Citations'] = 'Total relative citations'
 hplot = ggplot(data=long2, aes(x=value, fill=factor(group)))+
-# geom_histogram(binwidth = function(x) {2 * IQR(x, na.rm=T) / (length(x, na.rm=T)^(1/3))})+ # no longer working!
+# geom_histogram(binwidth = function(x) {2 * IQR(x, na.rm=TRUE) / (length(x, na.rm=TRUE)^(1/3))})+ # no longer working!
  geom_histogram()+
  theme_bw()+
  scale_fill_manual(NULL, values=cbbPalette[3:4])+
- xlab('Citation numbers or application score')+
+ xlab('Application score statistics or total relative citations')+
  ylab('Frequency')+
- facet_wrap(~variable, scales='free')+
+ facet_wrap(~facet, scales='free')+
  theme(legend.position = 'none', panel.grid.minor = element_blank())
 # for journal
 jpeg('BarnettHistograms.jpg', quality=100, units='in', width=5, height=4, res=400)
@@ -108,9 +100,12 @@ invisible(dev.off())
 hplot
 ```
 
-The histograms above show the mean, standard deviation, minimum, maximum and range (max minus min).
+The histograms above show the mean, standard deviation, minimum, maximum and range (maximum minus minimum).
 The lower the mean score, the better the application did in peer review.
 The standard deviation and range have a positive skew.
+
+The main outcome is strongly positively skewed and there was one outlier with a total relative citation of over 90. There were `r n.zero` (`r p.zero`%) grants with zero citations.
+
 
 #### Scatter-plots and correlations between application score statistics
 
@@ -154,7 +149,7 @@ Applications where there was one dissenting panel member with a good score were 
 
 There is a strong positive correlation between the standard deviation and the range (0.93), and both are measures of panel disagreement.
 
-### Scatter plots of citations against score statistics
+### Scatter plots of citations against application score statistics
 
 ```{r scatter.panel, fig.width=5, fig.height=5}
 scatter = ggplot(data=long, aes(x=value, y=Citations))+
@@ -167,9 +162,9 @@ scatter = ggplot(data=long, aes(x=value, y=Citations))+
 scatter
 ```
 
-The top-left panel showing the mean is a repeat of Figure 2 from the original PLOS ONE paper.
+The top-left panel showing the mean is a repeat of Figure 2 from the _PLOS ONE_ paper that used this data to examine the association between mean score and citations (Gallo et al, 2014).
 
-### Scatter plots of log-citations against score statistics
+### Scatter plots of log-citations against application score statistics
 
 ```{r mean.scatter.log, fig.width=5, fig.height=5}
 # log transform SD and range
@@ -236,7 +231,7 @@ scatter.var
 
 ##### Mean scores
 
-```{r plot.time, fig.width=4, fig.height=4}
+```{r plot.time, fig.width=3, fig.height=3}
 tplot = ggplot(data=data, aes(x=factor(`Review Year`), y=score.mean))+
  geom_boxplot()+
  theme_bw()+
@@ -247,7 +242,7 @@ tplot
 
 ##### Score standard deviation
 
-```{r plot.time.sd, fig.width=4, fig.height=4}
+```{r plot.time.sd, fig.width=3, fig.height=3}
 tplot = ggplot(data=data, aes(x=factor(`Review Year`), y=score.sd))+
  geom_boxplot()+
  theme_bw()+
@@ -258,7 +253,7 @@ tplot
 
 There has been some reduction in the mean and standard deviation over time.
 Hence it would be wise for our regression models to adjust for review year.
-This change was highlighted in the original PLOS paper and the plot of the mean score over time was also in the paper.
+This change was highlighted in the original _PLOS ONE_ paper and the plot of the mean score over time was also in that paper.
 
 ## Regression models
 
@@ -277,41 +272,43 @@ The log-transformed citations (_Y_) were modeled using a Normal distribution.
 The mean ($\mu$) had a constant and the application score statistics (_X_) which were first transformed by the fractional polynomial function.
 The random intercept ($\gamma$) adjusted for a potential within-panel correlation in citations.
 
-The 16 missing score standard deviations and 32 missing ranges were accounted for using multiple imputation.
+The 16 missing score standard deviations and 32 missing ranges were accounted for using multiple imputation (details in later section).
+We also show results that excluded these data using a complete case analysis.
 
-### Model with just mean score
+### Model with just mean score (complete case data)
 
-As a first step we fit just the mean score to confirm the findings from the previous paper.
+In an initial analysis, we fit just the mean application score to confirm the findings from the previous paper.
 
-#### Model fit - deviance
+#### Model fit - deviance (complete case data)
 
-```{r model.standard.deviance}
+```{r model.standard.deviance.cc}
 ## standard regression model
 fp.list = c(-2, -1, -0.5, 0, 0.5, 1, 2, 3) # list of fractional polynomials
 DEV = NULL
 for (fp in fp.list){
  if(fp != 0){data$score.tran = data$score.mean ^ fp}
  if(fp == 0){data$score.tran = log(data$score.mean)}
- if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + (1|Panel), data=data)} # without log-transform
- if(log.dep==T){model = lmer(log(`Web TRC`+0.1) ~ score.tran + (1|Panel), data=data)} # with log-transform
+ if(log.dep==FALSE){model = lmer(`Web TRC` ~ score.tran + (1|Panel), data=data)} # without log-transform
+ if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + (1|Panel), data=data)} # with log-transform
  frame = data.frame(FP=fp, deviance = REMLcrit(model))
  DEV = rbind(DEV, frame)
 }
 fp.best = DEV$FP[DEV$deviance==min(DEV$deviance)]
-names(DEV)[1] = 'Fractional polynomial'
-pander(DEV)
+DEV$diff = DEV$deviance - min(DEV$deviance)
+names(DEV) = c('Fractional polynomial', 'Deviance', 'Difference in deviance')
+pander(DEV, digits=c(0,4,2))
 ```
 
 The table shows the lowest deviance is for a fractional polynomial of `r fp.best`, although the difference between the three best models is small.
 
-#### Predictions from best model
+#### Predictions from best model (complete case data)
 
 ```{r model.standard.best}
 # re-fit best model
 if(fp.best != 0){data$score.tran = data$score.mean ^ fp.best}
 if(fp.best == 0){data$score.tran = log(data$score.mean)}
-if(log.dep==T){model = lmer(log(`Web TRC`+0.1) ~ score.tran + (1|Panel), data=data)}
-if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + (1|Panel), data=data)}
+if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + (1|Panel), data=data)}
+if(log.dep==FALSE){model = lmer(`Web TRC` ~ score.tran + (1|Panel), data=data)}
 ## plot predictions
 # https://cran.r-project.org/web/packages/merTools/vignettes/Using_predictInterval.html
 PI <- predictInterval(merMod = model, newdata = data, which='fixed', 
@@ -319,7 +316,7 @@ PI <- predictInterval(merMod = model, newdata = data, which='fixed',
             stat = "mean", type="linear.prediction", 
             include.resid.var = F)
 PI$x = data$score.mean
-if(log.dep==T){
+if(log.dep==TRUE){
  PI$fit = exp(PI$fit) - 0.1
  PI$lwr = exp(PI$lwr) - 0.1
  PI$upr = exp(PI$upr) - 0.1
@@ -339,23 +336,24 @@ pplot
 The plot shows the predicted relative citations using the best fractional polynomial model.
 The solid line is the mean and the grey area is a 95% confidence interval.
 
-#### Table of parameter estimates
+#### Table of parameter estimates (complete case data)
 
-```{r parm.table}
+```{r parm.table.cc}
 l1 = paste('Mean score, f(', fp.best, ')', sep='')
 stargazer(model, type='text', ci=T, ci.level=0.95, ci.separator = ' to ', omit.stat=c('aic', 'bic'), report='vcs', notes=' ', notes.append = F, single.row = T, digits=1, covariate.labels = c(l1, 'Intercept'))
 ```
 
-The table shows the mean and 95% confidence interval for the parameter estimates (%\beta%).
-There was a strongly statistically significant effect of the mean as the 95% confidence interval does not contain zero.
+The table shows the mean and 95% confidence interval for the parameter estimates ($\beta$).
+The "f()" in the variable label is the best fractional polynomial transformation.
+There was a strongly statistically significant effect of the mean score as the 95% confidence interval does not contain zero.
 However, it is difficult to interpret these estimates because of the fractional polynomial transformation.
 Hence it is better to interpret the effect using the previous figure.
 
 The within-panel correlation was 0.11, signifying a small positive correlation in the citations of applications assessed by the same panel.
 
-#### Model checking
+#### Model checking (complete case data)
 
-##### Histogram of residuals
+##### Histogram of residuals (complete case data)
 
 ```{r residuals.histo, fig.width=3, fig.height=3}
 par(mai=c(1, 1, 0.1, 0.1))
@@ -364,7 +362,7 @@ hist(resid(model), xlab='Residual', main=NULL)
 
 There are no clear outliers in the residuals.
 
-##### Scatter plot of residuals against mean
+##### Scatter plot of residuals against mean (complete case data)
 
 ```{r residuals.scatter, fig.width=3, fig.height=3}
 par(mai=c(1, 1, 0.1, 0.1))
@@ -372,7 +370,7 @@ plot(data$score.mean, resid(model), xlab='Mean score', ylab='Residual')
 abline(h=0, lty=2)
 ```
 
-##### Cook's distance for finding influential observations
+##### Cook's distance for finding influential observations (complete case data)
 
 ```{r cooks}
 # see https://stats.stackexchange.com/questions/54818/how-to-extract-compute-leverage-and-cooks-distances-for-linear-mixed-effects-mo
@@ -380,7 +378,146 @@ infl <- influence(model, obs = TRUE)
 plot(infl, which = "cook", yaxt='n', xlab="Cook's distance", ylab='Observation number', labels=FALSE)
 ```
 
-## Imputing missing standard deviations and ranges
+### Models for standard deviation and range (complete case data)
+
+Now we examine the alternative predictors of the application score standard deviation and range using the complete case data.
+
+#### Model fit - deviance (complete case data) ###  
+
+```{r deviance.complete.case}
+# set up complete case data
+cc = dplyr::select(data, year, score.mean, score.sd, Panel, `Web TRC`) %>%
+  tidyr::drop_na()
+# loop through model combinations
+DEV = NULL
+for (fp1 in fp.list){
+  for (fp2 in fp.list){
+    for (fp3 in fp.list){
+      this.data = cc # complete case
+      if(fp1 != 0){this.data$score.tran = this.data$score.mean ^ fp1}
+      if(fp1 == 0){this.data$score.tran = log(this.data$score.mean)}
+      if(fp2 != 0){this.data$score.tran2 = (this.data$score.sd+0.1) ^ fp2}
+      if(fp2 == 0){this.data$score.tran2 = log(this.data$score.sd+0.1)}
+      if(fp3 != 0){this.data$score.tran3 = this.data$year ^ fp3}
+      if(fp3 == 0){this.data$score.tran3 = log(this.data$year)}
+      if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
+      if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
+      frame = data.frame(FP1=fp1, FP2=fp2, FP3=fp3, Deviance = REMLcrit(model))
+      DEV = rbind(DEV, frame)
+    }
+  }
+}
+Dev.stats = summaryBy(Deviance ~ FP1 + FP2 + FP3, data=DEV)
+Dev.stats = dplyr::arrange(Dev.stats, Deviance.mean) %>%
+  dplyr::mutate(diff = Deviance.mean - min(Deviance.mean))
+names(Dev.stats) = c('FP1', 'FP2', 'FP3', 'Deviance', 'Difference in deviance')
+pander(Dev.stats[1:5,], digits=c(0,0,0,4,2)) # top five
+fp.best = as.numeric(Dev.stats[1, 1:3])
+```
+
+FP1 = application mean score, FP2 = application score standard deviation, FP3 = review year.
+
+#### Predictions for score standard deviation (complete case)
+
+```{r model.sd.best, include=FALSE}
+## Oct 2018
+# re-fit best model
+if(fp.best[1] != 0){cc$score.tran = cc$score.mean ^ fp.best[1]}
+if(fp.best[1] == 0){cc$score.tran = log(cc$score.mean+0.1)}
+if(fp.best[2] != 0){cc$score.tran2 = (cc$score.sd+0.1) ^ fp.best[2]}
+if(fp.best[2] == 0){cc$score.tran2 = log(cc$score.sd+0.1)}
+if(fp.best[3] != 0){cc$score.tran3 = cc$year ^ fp.best[3]}
+if(fp.best[3] == 0){cc$score.tran3 = log(cc$year+0.1)}
+if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3  + (1|Panel), data=cc)}
+if(log.dep==FALSE){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=cc)}
+```
+
+```{r plot.sd.predictions}
+## plot predictions for standard deviation
+pred.data = data.frame(Panel=1, 
+ score.tran=mean(cc$score.tran), 
+ score.tran2=seq(min(cc$score.tran2), max(cc$score.tran2), length.out=20), 
+ score.tran3=mean(cc$score.tran3)
+ )
+PI.sd <- predictInterval(merMod = model, newdata = pred.data, which='fixed', 
+            level = 0.95, n.sims = 5000, 
+            stat = "mean", type="linear.prediction", 
+            include.resid.var = F)
+PI.sd$x = pred.data$score.tran2
+if(fp.best[2]!=0){PI.sd$x = (PI.sd$x ^ (1/fp.best[2])) - 0.1} # back-transform
+if(fp.best[2]==0){PI.sd$x = exp(PI.sd$x)-0.1} # back-transform
+if(log.dep==TRUE){
+  PI.sd$fit = exp(PI.sd$fit) - 0.1
+  PI.sd$lwr = exp(PI.sd$lwr) - 0.1 
+  PI.sd$upr = exp(PI.sd$upr) - 0.1
+}
+PI.sd = dplyr::arrange(PI.sd)
+pplot = ggplot(data=PI.sd, aes(x=x, y=fit, ymin=lwr, ymax=upr))+
+ geom_ribbon(fill=grey(0.8))+
+ geom_line(size=1.1)+
+ geom_hline(lty=2, yintercept=1)+ # reference line of average
+ theme_bw()+
+ xlab('Score standard deviation')+
+ ylab('Total relative citations')+
+ theme(panel.grid.minor = element_blank())
+pplot
+```
+
+The plot shows the predicted relative citations using the best fractional polynomial model.
+The solid line is the mean and the grey area is a 95% confidence interval.
+
+
+#### Predictions for mean score (complete case) 
+
+```{r plot.mean.predictions}
+## plot predictions for mean
+pred.data = data.frame(Panel=1, 
+ score.tran=seq(min(cc$score.tran), max(cc$score.tran), length.out=20), 
+ score.tran2=mean(cc$score.tran2), 
+ score.tran3=mean(cc$score.tran3)
+ )
+PI.mean <- predictInterval(merMod = model, newdata = pred.data, which='fixed', 
+            level = 0.95, n.sims = 5000, 
+            stat = "mean", type="linear.prediction", 
+            include.resid.var = F)
+PI.mean$x = pred.data$score.tran
+if(fp.best[1]!=0){PI.mean$x = PI.mean$x ^ (1/fp.best[1])} # back-transform
+if(fp.best[1]==0){PI.mean$x = exp(PI.mean$x)-0.1} # back-transform
+if(log.dep==TRUE){
+  PI.mean$fit = exp(PI.mean$fit) - 0.1
+  PI.mean$lwr = exp(PI.mean$lwr) - 0.1 
+  PI.mean$upr = exp(PI.mean$upr) - 0.1
+}
+PI.mean = dplyr::arrange(PI.mean)
+pplot = ggplot(data=PI.mean, aes(x=x, y=fit, ymin=lwr, ymax=upr))+
+ geom_ribbon(fill=grey(0.8))+
+ geom_line(size=1.1)+
+ geom_hline(lty=2, yintercept=1)+ # reference line of average
+ theme_bw()+
+ xlab('Score mean')+
+ ylab('Total relative citations')+
+ theme(panel.grid.minor = element_blank())
+pplot
+```
+
+The plot shows the predicted relative citations using the best fractional polynomial model.
+The solid line is the mean and the grey area is a 95% confidence interval.
+
+#### Table of parameter estimates (complete case data)
+
+```{r parm.table}
+l1 = paste('Mean score, f(', fp.best[1], ')', sep='')
+l2 = paste('Score SD, f(', fp.best[2], ')', sep='')
+l3 = paste('Review year, f(', fp.best[3], ')', sep='')
+stargazer(model, type='text', ci=T, ci.level=0.95, ci.separator = ' to ', omit.stat=c('aic', 'bic'), report='vcs', notes=' ', notes.append = F, single.row = T, digits=1, covariate.labels = c(l1, l2, l3, 'Intercept'))
+```
+
+This table can be compared to the later table that uses the imputed data.
+Overall, there was very little difference in the estimates between the results using the complete case and imputed data. 
+
+The "f()" in the variable label is the best fractional polynomial transformation.
+
+# Imputing missing standard deviations and ranges
 
 ```{r impute, include=F}
 n.imp = 5 # number of imputations
@@ -403,13 +540,12 @@ The plot shows the observed (blue) and imputed (red) observations.
 stripplot(imp, pch = 20, cex = 1.2)
 ```
 
-### Model with mean score and score standard deviation
+### Model with mean score and score standard deviation (imputed data)
 
-#### Model fit - Top five deviances (FP = Fractional Polynomial)
+#### Model fit - Top five deviances (FP = Fractional Polynomial) (imputed data)
 
 ```{r model.standard.deviance.multiple}
-## standard regression model
-data$year = data$`Review Year` - 1998 # earliest year is 1999
+## 
 DEV = NULL
 for (impute in 1:5){
  this.data = data # start with old data
@@ -428,7 +564,7 @@ for (impute in 1:5){
     if(fp3 != 0){this.data$score.tran3 = this.data$year ^ fp3}
     if(fp3 == 0){this.data$score.tran3 = log(this.data$year)}
 if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
-if(log.dep==T){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
+if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
     frame = data.frame(impute=impute, FP1=fp1, FP2=fp2, FP3=fp3, Deviance = REMLcrit(model))
     DEV = rbind(DEV, frame)
    }
@@ -436,18 +572,22 @@ if(log.dep==T){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + scor
  }
 }
 Dev.stats = summaryBy(Deviance ~ FP1 + FP2 + FP3, data=DEV)
-Dev.stats = dplyr::arrange(Dev.stats, Deviance.mean)
-pander(Dev.stats[1:5, ]) # top five
+Dev.stats = dplyr::arrange(Dev.stats, Deviance.mean) %>%
+  dplyr::mutate(diff = Deviance.mean - min(Deviance.mean))
+names(Dev.stats) = c('FP1', 'FP2', 'FP3', 'Deviance', 'Difference in deviance')
+pander(Dev.stats[1:5,], digits=c(0,0,0,4,2)) # top five
 fp.best = as.numeric(Dev.stats[1, 1:3])
 ```
 
-AS before the best fractional polynomial for the mean was -0.5.
+FP1 = application mean score, FP2 = application score standard deviation, FP3 = review year.
 
-#### Predictions from best model
+As before the best fractional polynomial for the mean was -0.5.
 
-##### Predictions for mean score
+#### Predictions from best model (imputed data)
 
-```{r model.standard.best.multiple}
+##### Predictions for mean score (imputed data)
+
+```{r model.standard.best.multiple, include=FALSE}
 # re-fit best model
 vars = betas= list()
 for (impute in 1:5){
@@ -462,7 +602,7 @@ for (impute in 1:5){
  if(fp.best[2] == 0){this.data$score.tran2 = log(this.data$score.sd+0.1)}
  if(fp.best[3] != 0){this.data$score.tran3 = this.data$year ^ fp.best[3]}
  if(fp.best[3] == 0){this.data$score.tran3 = log(this.data$year)}
-if(log.dep==T){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
+if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
 if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
  vars[[impute]] = as.matrix(vcov(model))
  betas[[impute]] = fixef(model)
@@ -473,7 +613,8 @@ s = summary(MIcombine(betas, vars))
 # https://cran.r-project.org/web/packages/merTools/vignettes/Using_predictInterval.html
 # for mean score
 pred.data = data.frame(Panel=1, 
- score.tran=seq(min(this.data$score.tran), max(this.data$score.tran), length.out=20),  score.tran2=mean(this.data$score.tran2), 
+ score.tran=seq(min(this.data$score.tran), max(this.data$score.tran), length.out=20),  
+ score.tran2=mean(this.data$score.tran2), 
  score.tran3=mean(this.data$score.tran3)
  )
 # replace last model with stats from imputed model ...
@@ -486,12 +627,15 @@ PI.mean <- predictInterval(merMod = model, newdata = pred.data, which='fixed',
 PI.mean$x = pred.data$score.tran
 if(fp.best[1]!=0){PI.mean$x = PI.mean$x ^ (1/fp.best[1])} # back-transform mean
 if(fp.best[1]==0){PI.mean$x = exp(PI.mean$x)} # back-transform mean
-if(log.dep==T){
+if(log.dep==TRUE){
  PI.mean$fit = exp(PI.mean$fit) - 0.1
  PI.mean$lwr = exp(PI.mean$lwr) - 0.1
  PI.mean$upr = exp(PI.mean$upr) - 0.1
 }
 PI.mean = dplyr::arrange(PI.mean)
+```
+
+```{r}
 pplot = ggplot(data=PI.mean, aes(x=x, y=fit, ymin=lwr, ymax=upr))+
  geom_ribbon(fill=grey(0.8))+
  geom_line(size=1.1)+
@@ -505,7 +649,7 @@ pplot
 
 The mean shows a reduction in total citations for higher scores. The reduction for scores between 1 to 2 is steeper than the reduction for scores between 2 to 3. 
 
-##### Predictions for standard deviation
+##### Predictions for standard deviation (imputed data)
 
 ```{r pred.sd}
 pred.data = data.frame(Panel=1, 
@@ -518,9 +662,9 @@ PI.sd <- predictInterval(merMod = model, newdata = pred.data, which='fixed',
             stat = "mean", type="linear.prediction", 
             include.resid.var = F)
 PI.sd$x = pred.data$score.tran2
-if(fp.best[2]!=0){PI.sd$x = PI.sd$x ^ (1/fp.best[2])} # back-transform
-if(fp.best[2]==0){PI.sd$x = exp(PI.sd$x)} # back-transform
-if(log.dep==T){
+if(fp.best[2]!=0){PI.sd$x = (PI.sd$x ^ (1/fp.best[2])) - 0.1} # back-transform SD
+if(fp.best[2]==0){PI.sd$x = exp(PI.sd$x)} # back-transform SD
+if(log.dep==TRUE){
   PI.sd$fit = exp(PI.sd$fit) - 0.1
   PI.sd$lwr = exp(PI.sd$lwr) - 0.1 
   PI.sd$upr = exp(PI.sd$upr) - 0.1
@@ -540,7 +684,7 @@ pplot
 The mean line is flat, showing no clear association between the standard deviation and total citations.
 The very wide confidence interval indicates great uncertainty for high standard deviations. 
 
-##### Predictions for review year
+##### Predictions for review year (imputed data)
 
 ```{r pred.year}
 pred.data = data.frame(Panel=1, 
@@ -555,8 +699,8 @@ PI <- predictInterval(merMod = model, newdata = pred.data, which='fixed',
 PI$x = pred.data$score.tran3
 if(fp.best[3]!=0){PI$x = PI$x ^ (1/fp.best[3])} # back-transform 
 if(fp.best[3]==0){PI$x = exp(PI$x)} # back-transform (log)
-PI$x = PI$x + 1998
-if(log.dep==T){
+PI$x = PI$x + 1998 # re-scale year
+if(log.dep==TRUE){
   PI$fit = exp(PI$fit) - 0.1
   PI$lwr = exp(PI$lwr) - 0.1
   PI$upr = exp(PI$upr) - 0.1
@@ -575,7 +719,7 @@ pplot
 
 There was a relatively small increase in citations by review year.
 
-#### Table of parameter estimates
+#### Table of parameter estimates (imputed data)
 
 ```{r parm.table.multiple}
 l1 = paste('Mean score, f(', fp.best[1], ')', sep='')
@@ -588,9 +732,142 @@ Only the mean score had a statistically significant effect on citations.
 As before it is better to use the plots rather than the parameter estimates to interpret the estimated effects.
 The "f()" in the variable label is the best fractional polynomial transformation.
 
-#### Model checking
+#### Examining the top five models (imputed data) 
 
-##### Histogram of residuals
+Here we examine the top five models in terms of the deviance to check whether there is any variation in the estimates for models that have a similarly good fit.
+
+```{r top.five.models, include=FALSE}
+### Oct 2018
+this.data = data
+to.plot = NULL
+
+# loop through top five
+for (best in 1:5){
+  fp.best = as.numeric(Dev.stats[best, 1:3])
+# re-fit best model
+vars = betas= list()
+for (impute in 1:5){
+ this.data = data # start with old data
+ complete = complete(imp, impute) # select one imputation
+ complete$score.sd = exp(complete$score.sd) - 0.1 # back-transform
+ this.data$score.sd = complete$score.sd
+ if(fp.best[1] != 0){this.data$score.tran = this.data$score.mean ^ fp.best[1]}
+ if(fp.best[1] == 0){this.data$score.tran = log(this.data$score.mean)}
+ if(fp.best[2] != 0){this.data$score.tran2 = (this.data$score.sd+0.1) ^ fp.best[2]}
+ if(fp.best[2] == 0){this.data$score.tran2 = log(this.data$score.sd+0.1)}
+ if(fp.best[3] != 0){this.data$score.tran3 = this.data$year ^ fp.best[3]}
+ if(fp.best[3] == 0){this.data$score.tran3 = log(this.data$year)}
+if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
+if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
+ vars[[impute]] = as.matrix(vcov(model))
+ betas[[impute]] = fixef(model)
+} # end of imputation loop
+# combine imputed models
+s = summary(MIcombine(betas, vars))
+## plot predictions
+# https://cran.r-project.org/web/packages/merTools/vignettes/Using_predictInterval.html
+# replace last model with stats from imputed model ...
+model@beta = s$results
+## set-up prediction data
+# for mean score
+pred.data.mean = data.frame(Panel=1, 
+ score.tran=seq(min(this.data$score.tran), max(this.data$score.tran), length.out=20),  
+ score.tran2=mean(this.data$score.tran2), 
+ score.tran3=mean(this.data$score.tran3)
+ )
+# for SD score
+pred.data.sd = data.frame(Panel=1, 
+ score.tran=mean(this.data$score.tran),  
+ score.tran2=seq(min(this.data$score.tran2), max(this.data$score.tran2), length.out=20), 
+ score.tran3=mean(this.data$score.tran3)
+ )
+
+# ... now run predictions for mean
+PI.mean.sens <- predictInterval(merMod = model, newdata = pred.data.mean, which='fixed', 
+            level = 0.95, n.sims = 5000, seed=12345, 
+            stat = "mean", type="linear.prediction", 
+            include.resid.var = F)
+PI.mean.sens$x = pred.data.mean$score.tran
+if(fp.best[1]!=0){PI.mean.sens$x = PI.mean.sens$x ^ (1/fp.best[1])} # back-transform mean
+if(fp.best[1]==0){PI.mean.sens$x = exp(PI.mean.sens$x)} # back-transform mean
+if(log.dep==TRUE){
+ PI.mean.sens$fit = exp(PI.mean.sens$fit) - 0.1
+ PI.mean.sens$lwr = exp(PI.mean.sens$lwr) - 0.1
+ PI.mean.sens$upr = exp(PI.mean.sens$upr) - 0.1
+}
+PI.mean.sens = dplyr::arrange(PI.mean.sens, x)
+PI.mean.sens$best = best
+PI.mean.sens$score = 'Mean'
+to.plot = rbind(to.plot, PI.mean.sens)
+
+# ... now run predictions for SD
+PI.sd.sens <- predictInterval(merMod = model, newdata = pred.data.sd, which='fixed', 
+            level = 0.95, n.sims = 5000, seed=12345, 
+            stat = "mean", type="linear.prediction", 
+            include.resid.var = F)
+PI.sd.sens$x = pred.data.sd$score.tran2
+if(fp.best[2]!=0){PI.sd.sens$x = (PI.sd.sens$x ^ (1/fp.best[2])) - 0.1} # back-transform SD
+if(fp.best[2]==0){PI.sd.sens$x = exp(PI.sd.sens$x) - 0.1} # back-transform SD
+if(log.dep==TRUE){
+ PI.sd.sens$fit = exp(PI.sd.sens$fit) - 0.1
+ PI.sd.sens$lwr = exp(PI.sd.sens$lwr) - 0.1
+ PI.sd.sens$upr = exp(PI.sd.sens$upr) - 0.1
+}
+PI.sd.sens = dplyr::arrange(PI.sd.sens, x)
+PI.sd.sens$best = best
+PI.sd.sens$score = 'SD'
+to.plot = rbind(to.plot, PI.sd.sens)
+} # end of top five model loop
+```
+
+##### Predictions for top five models for mean application score
+
+```{r plot.top.five.mean, fig.width=7}
+# Add FP to facet wrap
+to.plot$facet = paste(to.plot$best, '. FP(', Dev.stats[to.plot$best, 1], ')', sep='')
+#
+pplot = ggplot(data=dplyr::filter(to.plot, score=='Mean'), aes(x=x, y=fit, ymin=lwr, ymax=upr))+
+ geom_ribbon(fill=grey(0.8))+
+ geom_line(size=1.1)+
+ geom_hline(lty=2, yintercept=1)+ # reference line of average
+ theme_bw()+
+ xlab('Application mean score')+
+ ylab('Total relative citations')+
+ theme(panel.grid.minor = element_blank())+ 
+  facet_wrap(~facet)
+pplot
+```
+
+The headings for each plot show the deviance ranking (1 to 5) and the fractional polynomial (FP).
+
+##### Predictions for top five models for application score standard deviation
+
+```{r plot.top.five.sd, fig.width=7}
+# Add FP to facet wrap
+to.plot$facet = paste(to.plot$best, '. FP(', Dev.stats[to.plot$best, 2], ')', sep='')
+# 
+pplot = ggplot(data=dplyr::filter(to.plot, score=='SD'), aes(x=x, y=fit, ymin=lwr, ymax=upr))+
+ geom_ribbon(fill=grey(0.8))+
+ geom_line(size=1.1)+
+ geom_hline(lty=2, yintercept=1)+ # reference line of average
+ theme_bw()+
+ coord_cartesian(ylim=c(0,10))+
+ xlab('Application score standard deviation')+
+ ylab('Total relative citations')+
+ theme(panel.grid.minor = element_blank())+ 
+  facet_wrap(~facet)
+pplot
+```
+
+The headings for each plot show the deviance ranking (1 to 5) and the fractional polynomial (FP).
+
+To help focus the plots on the most interesting predictions, we truncated the upper limits of the y-axis at 10.
+The predictions for the second best model with a fractional polynomial of 0.5 were interesting as they had a much smaller confidence interval for larger standard deviations.
+
+
+#### Model checking (imputed data)
+
+##### Histogram of residuals (imputed data)
 
 ```{r residuals.histo.multiple, fig.width=3, fig.height=3}
 par(mai=c(1, 1, 0.1, 0.1))
@@ -599,7 +876,7 @@ hist(resid(model), xlab='Residual', main=NULL)
 
 There are no clear outliers in the residuals.
 
-##### Scatter plot of residuals against mean
+##### Scatter plot of residuals against mean (imputed data)
 
 ```{r residuals.scatter.multiple, fig.width=3, fig.height=3}
 par(mai=c(1, 1, 0.1, 0.1))
@@ -607,7 +884,7 @@ plot(data$score.mean, resid(model), xlab='Mean score', ylab='Residual')
 abline(h=0, lty=2)
 ```
 
-##### Scatter plot of residuals against log standard deviation
+##### Scatter plot of residuals against log standard deviation (imputed data)
 
 ```{r residuals.scatter.sd.multiple, fig.width=3, fig.height=3}
 par(mai=c(1, 1, 0.1, 0.1))
@@ -615,7 +892,7 @@ plot(log(data$score.sd+0.1), resid(model), xlab='Score standard deviation', ylab
 abline(h=0, lty=2)
 ```
 
-##### Cook's distance for finding influential observations
+##### Cook's distance for finding influential observations (imputed data)
 
 ```{r cooks.multiple}
 # see https://stats.stackexchange.com/questions/54818/how-to-extract-compute-leverage-and-cooks-distances-for-linear-mixed-effects-mo
@@ -626,20 +903,22 @@ high = which(cooks==max(cooks)) # largest cooks; has largest SD of 0.98
 ```
 
 There is one clear outlier using Cook's distance which may be an influential observation.
-This is the application with the largest standard deviation which had a citation number just above zero.
+This is the application with the largest standard deviation which had a small citation number just above zero.
 
-#### Results excluding one influential observation
+#### Results excluding one influential observation (imputed data)
 
 ```{r excluding.large}
 exclude = this.data[(1:nrow(data)%in%high==F), ]
-if(log.dep==T){model.exclude = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=exclude)}
+if(log.dep==TRUE){model.exclude = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=exclude)}
 if(log.dep==F){model.exclude = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=exclude)}
 stargazer(model.exclude, type='text', ci=T, ci.level=0.95, ci.separator = ' to ', omit.stat=c('aic', 'bic'), report='vcs', notes=' ', notes.append = F, single.row = T, digits=1, covariate.labels = c(l1, l2, l3, 'Intercept'))
 ```
 
 The estimate for the score standard deviation is very close to zero, indicating little influence of the standard deviation on citations.
 
-##### Predictions for standard deviation
+The "f()" in the variable label is the best fractional polynomial transformation.
+
+##### Predictions for standard deviation (excluding influential observation; imputed data)
 
 ```{r pred.sd.excluded}
 pred.data = data.frame(Panel=1, 
@@ -652,9 +931,9 @@ PI <- predictInterval(merMod = model.exclude, newdata = pred.data, which='fixed'
             stat = "mean", type="linear.prediction", 
             include.resid.var = F)
 PI$x = pred.data$score.tran2
-if(fp.best!=0){PI$x = PI$x ^ (1/fp.best[2])} # back-transform
+if(fp.best!=0){PI$x = (PI$x ^ (1/fp.best[2])) -0.1} # back-transform SD
 if(fp.best==0){PI$x = exp(PI$x)} # back-transform
-if(log.dep==T){
+if(log.dep==TRUE){
   PI$fit = exp(PI$fit) - 0.1
   PI$lwr = exp(PI$lwr) - 0.1
   PI$upr = exp(PI$upr) - 0.1
@@ -674,11 +953,11 @@ pplot
 The mean line is flat, showing no clear association between the standard deviation and total citations.
 There is still uncertainty for high standard deviations, even after excluding the influential observation, although this has been reduced compared with the previous figure. 
 
-### Model using score range
+### Model using score range (imputed data)
 
 Here we use the range in place of the standard deviation as the measure of panel disagreement.
 
-#### Model fit - Top five deviances for score range (FP = Fractional Polynomial)
+#### Model fit - Top five deviances for score range (FP = Fractional Polynomial) (imputed data)
 
 ```{r model.standard.deviance.range}
 ## standard regression model
@@ -699,7 +978,7 @@ for (impute in 1:5){
     if(fp2 == 0){this.data$score.tran2 = log(this.data$range+0.1)}
     if(fp3 != 0){this.data$score.tran3 = this.data$year ^ fp3}
     if(fp3 == 0){this.data$score.tran3 = log(this.data$year)}
-    if(log.dep==T){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)} # log
+    if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)} # log
     if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)}
     frame = data.frame(Impute=impute, FP1=fp1, FP2=fp2, FP3=fp3, Deviance = REMLcrit(model))
     DEV = rbind(DEV, frame)
@@ -708,21 +987,26 @@ for (impute in 1:5){
  }
 }
 Dev.stats = summaryBy(Deviance ~ FP1 + FP2 + FP3, data=DEV)
-Dev.stats = dplyr::arrange(Dev.stats, Deviance.mean)
-pander(Dev.stats[1:5, ]) # top five
-fp.best = c(Dev.stats$FP1[1], Dev.stats$FP2[1], Dev.stats$FP3[1]) # best
-# re-fit best model
+Dev.stats = dplyr::arrange(Dev.stats, Deviance.mean) %>%
+  dplyr::mutate(diff = Deviance.mean - min(Deviance.mean))
+names(Dev.stats) = c('FP1', 'FP2', 'FP3', 'Deviance', 'Difference in deviance')
+pander(Dev.stats[1:5,], digits=c(0,0,0,4,2)) # top five
+fp.best = as.numeric(Dev.stats[1, 1:3]) # best
+
+## re-fit best model
 if(fp.best[1] != 0){this.data$score.tran = this.data$score.mean ^ fp.best[1]}
 if(fp.best[1] == 0){this.data$score.tran = log(this.data$score.mean)}
 if(fp.best[2] != 0){this.data$score.tran2 = (this.data$range+0.1) ^ fp.best[2]}
 if(fp.best[2] == 0){this.data$score.tran2 = log(this.data$range+0.1)}
 if(fp.best[3] != 0){this.data$score.tran3 = this.data$year ^ fp.best[3]}
 if(fp.best[3] == 0){this.data$score.tran3 = log(this.data$year)}
-if(log.dep==T){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)} # logged
+if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)} # logged
 if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=this.data)} # not logged
 ```
 
-#### Table of parameter estimates
+FP1 = application mean score, FP2 = application score range, FP3 = review year.
+
+#### Table of parameter estimates (imputed data)
 
 ```{r parms.range}
 l1 = paste('Mean score, f(', fp.best[1], ')', sep='')
@@ -731,7 +1015,7 @@ l3 = paste('Review year, f(', fp.best[3], ')', sep='')
 stargazer(model, type='text', ci=T, ci.level=0.95, ci.separator = ' to ', omit.stat=c('aic', 'bic'), report='vcs', notes=' ', notes.append = F, single.row = T, digits=1, covariate.labels = c(l1, l2, l3, 'Intercept'))
 ```
 
-##### Predictions for range
+##### Predictions for score range (imputed data)
 
 ```{r pred.range}
 pred.data = data.frame(Panel=1, 
@@ -744,9 +1028,9 @@ PI.range <- predictInterval(merMod = model, newdata = pred.data, which='fixed',
             stat = "mean", type="linear.prediction", 
             include.resid.var = F)
 PI.range$x = pred.data$score.tran2
-if(fp.best[2]!=0){PI.range$x = PI.range$x ^ (1/fp.best[2])} # back-transform
+if(fp.best[2]!=0){PI.range$x = (PI.range$x ^ (1/fp.best[2])) -0.1} # back-transform
 if(fp.best[2]==0){PI.range$x = exp(PI.range$x)} # back-transform
-if(log.dep==T){
+if(log.dep==TRUE){
  PI.range$fit = exp(PI.range$fit) - 0.1
  PI.range$lwr = exp(PI.range$lwr) - 0.1
  PI.range$upr = exp(PI.range$upr) - 0.1
@@ -763,10 +1047,21 @@ pplot = ggplot(data=PI.range, aes(x=x, y=fit, ymin=lwr, ymax=upr))+
 pplot
 ```
 
-There was no clear association between the range in an application's score and its subsequent citation numbers.
+There was no clear association between the range in an application's score and its subsequent citations.
 
 ```{r plot.for.paper, include=F}
-# multi-panel plot for journal
+## multi-panel plot for journal
+# labels
+l1 = data.frame(varnum=1, x=1.3, fit=-0.1, label='Better\nscore', lwr=0, upr=0)
+l2 = data.frame(varnum=1, x=3.1, fit=-0.1, label='Worse\nscore', lwr=0, upr=0)
+l3 = data.frame(varnum=2, x=0.25, fit=-0.1, label='Greater\nagreement', lwr=0, upr=0)
+l4 = data.frame(varnum=2, x=0.9, fit=-0.1, label='Greater\ndisagreement', lwr=0, upr=0)
+l5 = data.frame(varnum=3, x=0.4, fit=-0.1, label='Greater\nagreement', lwr=0, upr=0)
+l6 = data.frame(varnum=3, x=2.25, fit=-0.1, label='Greater\ndisagreement', lwr=0, upr=0)
+labels = rbind(l1, l2, l3, l4, l5, l6)
+labels$label = as.character(labels$label)
+labels$varnum = factor(labels$varnum, levels=1:3, labels=c('Mean', 'Standard deviation', 'Range')) # for ordering
+# data
 PI.mean$varnum = 1
 PI.sd$varnum = 2
 PI.range$varnum = 3
@@ -777,19 +1072,290 @@ pred.plot = ggplot(data=for.plot, aes(x=x, y=fit, ymin=lwr, ymax=upr))+
  geom_line(size=1.1)+
  geom_hline(lty=2, yintercept=1)+ # reference line of average
  theme_bw()+ 
+ geom_text(data=labels, aes(x=x, y=fit, label=label), size=2, col='dark red')+
  xlab('Score statistic')+
  ylab('Total relative citations')+
+ coord_cartesian(ylim=c(-0.12, 4.5))+
  theme(panel.grid.minor = element_blank())+
- facet_wrap(~varnum, scales='free')
+ facet_wrap(~varnum, scales='free_x')
 pred.plot
 jpeg('BarnettPredictions.jpg', quality=100, units='in', width=5, height=3, res=400)
 print(pred.plot)
 invisible(dev.off())
 ```
 
+# Plots of inter-quartile range in citations against score statistics (complete case)
 
-## References
+```{r make.sd.data, include=FALSE}
+## estimate citation standard devitions in narrow bands (windows)
+# do with and without outlier in terms of citations
+library(dplyr)
+window.size = 20 # one sided window size in number of applications
+weights = dnorm(c(-window.size:-1, 0, 1:window.size) / (window.size/2)) # Gaussian smoothing weights
+## a) standard deviation
+wdata = dplyr::arrange(data, score.sd) %>% # arrange data by score standard deviation
+  dplyr::mutate(rank = 1:n())
+wdata.non = wdata
+wdata.non$`Web TRC`[wdata.non$Anon_PropID == 'PRX0152'] = NA # without one very successful project
+to.plot.sd = NULL
+for (k in (window.size+1):(nrow(wdata)-window.size-1)){
+  # with outlier
+  this = filter(wdata, rank >= k-window.size & rank <= k+window.size)  
+  frame = mutate(this, score=mean(score.sd, na.rm=TRUE),
+                        citations.sd = sd(`Web TRC`, na.rm=TRUE),
+                 weighted = weights * `Web TRC` / sum(weights),
+                 sd.weight = sd(weighted, na.rm=TRUE), 
+                 IQR = IQR(this$`Web TRC`, na.rm=TRUE),
+                 IQR.weight = IQR(weighted, na.rm=TRUE),
+                 with.outlier = 1,
+                 type = 'SD') %>%
+    select(score, citations.sd, sd.weight, IQR, IQR.weight, type, with.outlier) %>%
+    unique()
+  to.plot.sd = rbind(to.plot.sd, frame)
+  # without outlier
+  this = filter(wdata.non, rank >= k-window.size & rank <= k+window.size)  
+  frame = mutate(this, score=mean(score.sd, na.rm=TRUE),
+                        citations.sd = sd(`Web TRC`, na.rm=TRUE),
+                 weighted = weights * `Web TRC` / sum(weights),
+                 sd.weight = sd(weighted, na.rm=TRUE), 
+                 IQR = IQR(this$`Web TRC`, na.rm=TRUE),
+                 IQR.weight = IQR(weighted, na.rm=TRUE),
+                 with.outlier = 2,
+                 type = 'SD') %>%
+    select(score, citations.sd, sd.weight, IQR, IQR.weight, type, with.outlier) %>%
+    unique()
+  to.plot.sd = rbind(to.plot.sd, frame)
+}
+## b) mean
+wdata = dplyr::arrange(data, score.mean) %>% # arrange data by score mean
+  dplyr::mutate(rank = 1:n())
+wdata.non = wdata
+wdata.non$`Web TRC`[wdata.non$Anon_PropID == 'PRX0152'] = NA # without one very successful project
+to.plot.mean = NULL
+for (k in (window.size+1):(nrow(wdata)-window.size-1)){
+  # with outlier
+  this = filter(wdata, rank >= k-window.size & rank <= k+window.size)  
+  frame = mutate(this, score=mean(score.mean, na.rm=TRUE),
+                        citations.sd = sd(`Web TRC`, na.rm=TRUE),
+                 weighted = weights * `Web TRC` / sum(weights),
+                 sd.weight = sd(weighted, na.rm=TRUE), 
+                 IQR = IQR(this$`Web TRC`, na.rm=TRUE),
+                 IQR.weight = IQR(weighted, na.rm=TRUE),
+                 with.outlier = 1,
+                 type = 'Mean') %>%
+    select(score, citations.sd, sd.weight, IQR, IQR.weight, type, with.outlier) %>%
+    unique()
+  to.plot.mean = rbind(to.plot.mean, frame)
+  # without outlier
+  this = filter(wdata.non, rank >= k-window.size & rank <= k+window.size)  
+  frame = mutate(this, score=mean(score.mean, na.rm=TRUE),
+                        citations.sd = sd(`Web TRC`, na.rm=TRUE),
+                 weighted = weights * `Web TRC` / sum(weights),
+                 sd.weight = sd(weighted, na.rm=TRUE), 
+                 IQR = IQR(this$`Web TRC`, na.rm=TRUE),
+                 IQR.weight = IQR(weighted, na.rm=TRUE),
+                 with.outlier = 2,
+                 type = 'Mean') %>%
+    select(score, citations.sd, sd.weight, IQR, IQR.weight, type, with.outlier) %>%
+    unique()
+  to.plot.mean = rbind(to.plot.mean, frame)
+}
+to.plot = rbind(to.plot.mean, to.plot.sd)
+```
 
+```{r plot.window, fig.width=6, fig.height=4.5}
+## Change SD to "Standard deviation"
+to.plot$type[to.plot$type=='SD'] = 'Standard deviation'
+wplot = ggplot(data=subset(to.plot, with.outlier==1), aes(x=score, y=IQR.weight))+ # just plot with outlier when using IQR
+  geom_line(size=1.1, col=cbbPalette[2])+
+#  scale_color_manual('With highest cited\napplication', values=cbbPalette[2:3], labels=c('Yes','No'))+
+  xlab('Application score statistic')+
+  ylab('Inter-quartile range in total relative citations')+
+  facet_wrap(~type, scales='free_x')+
+  theme_bw()+
+  # legend.title.align = 1, legend.text.align = 1, legend.position = c(0.82,0.8), 
+  theme(panel.grid.minor = element_blank())
+wplot
+jpeg('BarnettScatterIQR.jpg', quality=100, units='in', width=5, height=3.2, res=400)
+print(wplot)
+invisible(dev.off())
+```
+
+We used a scatterplot smoother to examine the association between the inter-quartile range (IQR) in citations and the application score statistics (Diggle et al, 2002, chapter 3). 
+The aim is to see if there is a change in the variance in citations by the score statistics. 
+This could occur because of a high volatity in risky proposals, with some failures (with no citations) and some huge successes (with many citations). This pattern would increase the variance in citations.
+We did not examine the variance or standard deviation because the citations counts are skewed and the estimates were strongly influenced by the application with the highest total relative citation.
+
+The plots show a general decrease in the IQR in citations with increasing mean, suggesting more volatility in ciations for applications with the better scores. However, the scale on the y-axis is relatively small. There is also a slight reduction in the IQR in citations for larger standard deviations, which directly contradicts the idea of having more volatility in citations where there was greater disagreement between reviewers.
+
+# Sensitivity analysis: just look at sub-sample with a larger number of reviewers (imputed data)
+
+Around 10% of applications had only a few panel members and were reviewed by mail. To examine the influence of these applications, we ran a sensitivity analysis just using the larger sample of standard peer review panels. 
+
+```{r sensitivity.deviance}
+DEV = NULL
+for (impute in 1:5){
+ this.data = data # 
+ complete = complete(imp, impute) # select one imputation
+ complete$score.sd = exp(complete$score.sd) - 0.1 # back-transform
+ complete$range = exp(complete$range) - 0.1 # back-transform
+ this.data$score.sd = complete$score.sd
+ panel = dplyr::filter(this.data, !stringr::str_detect(Panel, 'mail')) # exclude small panels
+ for (fp1 in fp.list){
+  for (fp2 in fp.list){
+   for (fp3 in fp.list){
+    if(fp1 != 0){panel$score.tran = panel$score.mean ^ fp1}
+    if(fp1 == 0){panel$score.tran = log(panel$score.mean)}
+    if(fp2 != 0){panel$score.tran2 = (panel$score.sd+0.1) ^ fp2}
+    if(fp2 == 0){panel$score.tran2 = log(panel$score.sd+0.1)}
+    if(fp3 != 0){panel$score.tran3 = panel$year ^ fp3}
+    if(fp3 == 0){panel$score.tran3 = log(panel$year)}
+if(log.dep==F){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=panel)}
+if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=panel)}
+    frame = data.frame(impute=impute, FP1=fp1, FP2=fp2, FP3=fp3, Deviance = REMLcrit(model))
+    DEV = rbind(DEV, frame)
+   }
+  }
+ }
+}
+Dev.stats = summaryBy(Deviance ~ FP1 + FP2 + FP3, data=DEV)
+Dev.stats = dplyr::arrange(Dev.stats, Deviance.mean) %>%
+  dplyr::mutate(diff = Deviance.mean - min(Deviance.mean))
+names(Dev.stats) = c('FP1', 'FP2', 'FP3', 'Deviance', 'Difference in deviance')
+pander(Dev.stats[1:5,], digits=c(0,0,0,4,2)) # top five
+fp.best = as.numeric(Dev.stats[1, 1:3])
+```
+
+FP1 = application mean score, FP2 = application score standard deviation, FP3 = review year.
+
+
+#### Predictions for standard deviation for sensitivity analysis (imputed data)
+
+```{r model.sd.best.sensitivity, include=FALSE}
+## Oct 2018
+# re-fit best model
+if(fp.best[1] != 0){panel$score.tran = panel$score.mean ^ fp.best[1]}
+if(fp.best[1] == 0){panel$score.tran = log(panel$score.mean+0.1)}
+if(fp.best[2] != 0){panel$score.tran2 = (panel$score.sd+0.1) ^ fp.best[2]}
+if(fp.best[2] == 0){panel$score.tran2 = log(panel$score.sd+0.1)}
+if(fp.best[3] != 0){panel$score.tran3 = panel$year ^ fp.best[3]}
+if(fp.best[3] == 0){panel$score.tran3 = log(panel$year+0.1)}
+if(log.dep==TRUE){model = lmer(log(`Web TRC`+0.1) ~ score.tran + score.tran2 + score.tran3  + (1|Panel), data=panel)}
+if(log.dep==FALSE){model = lmer(`Web TRC` ~ score.tran + score.tran2 + score.tran3 + (1|Panel), data=panel)}
+```
+
+```{r plot.sd.predictions.sensitivity}
+## plot predictions for standard deviation
+pred.data = data.frame(Panel=1,
+ score.tran=mean(panel$score.tran), 
+ score.tran2=seq(min(panel$score.tran2), max(panel$score.tran2), length.out=20), 
+ score.tran3=mean(panel$score.tran3)
+ )
+PI.sd <- predictInterval(merMod = model, newdata = pred.data, which='fixed', 
+            level = 0.95, n.sims = 5000, 
+            stat = "mean", type="linear.prediction", 
+            include.resid.var = F)
+PI.sd$x = pred.data$score.tran2
+if(fp.best[2]!=0){PI.sd$x = (PI.sd$x ^ (1/fp.best[2])) - 0.1} # back-transform
+if(fp.best[2]==0){PI.sd$x = exp(PI.sd$x)-0.1} # back-transform
+if(log.dep==TRUE){
+  PI.sd$fit = exp(PI.sd$fit) - 0.1
+  PI.sd$lwr = exp(PI.sd$lwr) - 0.1 
+  PI.sd$upr = exp(PI.sd$upr) - 0.1
+}
+PI.sd = dplyr::arrange(PI.sd)
+pplot = ggplot(data=PI.sd, aes(x=x, y=fit, ymin=lwr, ymax=upr))+
+ geom_ribbon(fill=grey(0.8))+
+ geom_line(size=1.1)+
+ geom_hline(lty=2, yintercept=1)+ # reference line of average
+ theme_bw()+
+ xlab('Score standard deviation')+
+ ylab('Total relative citations')+
+ theme(panel.grid.minor = element_blank())
+pplot
+```
+
+The results from this model were very similar to the model using all panels.
+
+#### Predictions for mean for sensitivity analysis (imputed data) 
+
+```{r plot.mean.predictions.sensitivity}
+## plot predictions for mean
+pred.data = data.frame(Panel=1, # requires dummy panel to work
+ score.tran=seq(min(panel$score.tran), max(panel$score.tran), length.out=20), 
+ score.tran2=mean(panel$score.tran2), 
+ score.tran3=mean(panel$score.tran3)
+ )
+PI.mean <- predictInterval(merMod = model, newdata = pred.data, which='fixed', 
+            level = 0.95, n.sims = 5000, 
+            stat = "mean", type="linear.prediction", 
+            include.resid.var = F)
+PI.mean$x = pred.data$score.tran
+if(fp.best[1]!=0){PI.mean$x = PI.mean$x ^ (1/fp.best[1])} # back-transform
+if(fp.best[1]==0){PI.mean$x = exp(PI.mean$x)-0.1} # back-transform
+if(log.dep==TRUE){
+  PI.mean$fit = exp(PI.mean$fit) - 0.1
+  PI.mean$lwr = exp(PI.mean$lwr) - 0.1 
+  PI.mean$upr = exp(PI.mean$upr) - 0.1
+}
+PI.mean = dplyr::arrange(PI.mean)
+pplot = ggplot(data=PI.mean, aes(x=x, y=fit, ymin=lwr, ymax=upr))+
+ geom_ribbon(fill=grey(0.8))+
+ geom_line(size=1.1)+
+ geom_hline(lty=2, yintercept=1)+ # reference line of average
+ theme_bw()+
+ xlab('Score mean')+
+ ylab('Total relative citations')+
+ theme(panel.grid.minor = element_blank())
+pplot
+```
+
+The results from this model were very similar to the model using all panels.
+
+
+# Scoring approach suggested by our peer reviewers (complete case)
+
+```{r buckets}
+# October 2018
+top.bucket = dplyr::filter(data, score.mean < 1.5) # mean of one
+second.bucket = dplyr::filter(data, score.mean >= 1.5 & score.mean< 2.5) # mean of two
+top.sum = sum(top.bucket$`Web TRC`)
+second.sum = sum(second.bucket$`Web TRC`)
+# until funding runs out (only 50% now funded)
+funding.cut = nrow(data) / 2
+trc.mean = dplyr::arrange(second.bucket, score.mean) %>%
+  dplyr::mutate(rank = nrow(top.bucket) + 1:n()) %>% # rank after top bucket (low mean to high mean)
+  filter(rank <= funding.cut) %>% # just top half
+  mutate(sum = sum(`Web TRC`), max=max(`Web TRC`), iqr=IQR(`Web TRC`)) %>%
+  select(sum, max, iqr) %>%
+  unique()
+trc.sd = dplyr::arrange(second.bucket, - score.sd) %>%
+  dplyr::mutate(rank = nrow(top.bucket) + 1:n()) %>% # rank after top bucket (high SD to low SD)
+  filter(rank <= funding.cut) %>% # just top half
+  mutate(sum = sum(`Web TRC`), max=max(`Web TRC`), iqr=IQR(`Web TRC`)) %>%
+  select(sum, max, iqr) %>%
+  unique()
+```
+
+The peer reviewers for our _F1000Research_ paper suggested using the mean application score to fund a top-half of applications in a first "bucket", then ranking the next half of funded applications using the application score standard deviation in a second "bucket".
+
+Funding the second bucket by ranking using the mean (so the same as the first bucket) gave the following results in that bucket:
+
+* a total relative citation of `r round(trc.mean$sum,1)`
+* a maximum total relative citation of `r round(trc.mean$max,1)`
+* an inter-quartile range in relative citation of `r round(trc.mean$iqr,1)`
+
+Funding the second bucket by ranking using the standard deviation (largest to smallest) gave the following results in that bucket:
+
+* a total relative citation of `r round(trc.sd$sum,1)`.
+* a maximum total relative citation of `r round(trc.sd$max,1)`.
+* an inter-quartile range in total relative citation of `r round(trc.sd$iqr,1)`
+
+
+# References
+
+* Diggle PJ, Heagerty PJ, Liang KY, Zeger S. (2002) Analysis of Longitudinal Data. _OUP Oxford_
+  
 * Gallo SA, Carpenter AS, Irwin D, McPartland CD, Travis J, et al. (2014) The Validation of Peer Review through Research Impact Measures and the Implications for Funding Strategies. _PLOS ONE_ **9**(9): e106474. https://doi.org/10.1371/journal.pone.0106474
 
-* 	Stef van Buuren, Karin Groothuis-Oudshoorn (2011) mice: Multivariate Imputation by Chained Equations in R. _J Stat Software_ **45**(3)
+*	Stef van Buuren, Karin Groothuis-Oudshoorn (2011) mice: Multivariate Imputation by Chained Equations in R. _J Stat Software_ **45**(3)
