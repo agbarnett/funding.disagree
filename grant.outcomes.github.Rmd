@@ -1,7 +1,7 @@
 ---
 title: "Examining the association between grant application panel scores and subsequent citations"
 author: "Adrian Barnett"
-date: "8 October 2018"
+date: "9 October 2018"
 output: word_document
 ---
 
@@ -1073,9 +1073,9 @@ pred.plot = ggplot(data=for.plot, aes(x=x, y=fit, ymin=lwr, ymax=upr))+
  geom_hline(lty=2, yintercept=1)+ # reference line of average
  theme_bw()+ 
  geom_text(data=labels, aes(x=x, y=fit, label=label), size=2, col='dark red')+
+ coord_cartesian(ylim=c(-0.12, 4.5))+ # to fit in geom_text
  xlab('Score statistic')+
  ylab('Total relative citations')+
- coord_cartesian(ylim=c(-0.12, 4.5))+
  theme(panel.grid.minor = element_blank())+
  facet_wrap(~varnum, scales='free_x')
 pred.plot
@@ -1164,19 +1164,29 @@ to.plot = rbind(to.plot.mean, to.plot.sd)
 ```
 
 ```{r plot.window, fig.width=6, fig.height=4.5}
-## Change SD to "Standard deviation"
-to.plot$type[to.plot$type=='SD'] = 'Standard deviation'
+## multi-panel plot for journal
+# labels
+l1 = data.frame(varnum=1, x=1.4, IQR.weight=0.01, label='Better\nscore', lwr=0, upr=0)
+l2 = data.frame(varnum=1, x=2.4, IQR.weight=0.01, label='Worse\nscore', lwr=0, upr=0)
+l3 = data.frame(varnum=2, x=0.07, IQR.weight=0.01, label='Greater\nagreement', lwr=0, upr=0)
+l4 = data.frame(varnum=2, x=0.46, IQR.weight=0.01, label='Greater\ndisagreement', lwr=0, upr=0)
+labels = rbind(l1, l2, l3, l4)
+labels$label = as.character(labels$label)
+labels$varnum = factor(labels$varnum, levels=1:2, labels=c('Mean', 'Standard deviation')) ## Change SD to "Standard deviation"
+to.plot$varnum = 2
+to.plot$varnum [to.plot$type=='Mean'] = 1
+to.plot$varnum = factor(to.plot$varnum, levels=1:2, labels=c('Mean', 'Standard deviation')) ## 
 wplot = ggplot(data=subset(to.plot, with.outlier==1), aes(x=score, y=IQR.weight))+ # just plot with outlier when using IQR
   geom_line(size=1.1, col=cbbPalette[2])+
-#  scale_color_manual('With highest cited\napplication', values=cbbPalette[2:3], labels=c('Yes','No'))+
   xlab('Application score statistic')+
   ylab('Inter-quartile range in total relative citations')+
-  facet_wrap(~type, scales='free_x')+
+  geom_text(data=labels, aes(x=x, y=IQR.weight, label=label), size=2, col='dark red')+
+#  coord_cartesian(ylim=c(-0.01, 0.24))+ # to fit in geom_text
   theme_bw()+
-  # legend.title.align = 1, legend.text.align = 1, legend.position = c(0.82,0.8), 
-  theme(panel.grid.minor = element_blank())
+  theme(panel.grid.minor = element_blank())+
+  facet_wrap(~varnum, scales='free_x')
 wplot
-jpeg('BarnettScatterIQR.jpg', quality=100, units='in', width=5, height=3.2, res=400)
+jpeg('BarnettScatterIQR.jpg', quality=100, units='in', width=5, height=3.1, res=400)
 print(wplot)
 invisible(dev.off())
 ```
